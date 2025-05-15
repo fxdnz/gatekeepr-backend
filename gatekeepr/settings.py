@@ -56,6 +56,9 @@ CORS_ALLOWED_ORIGINS = [
     "https://gatekeepr1.netlify.app",
     
 ]
+
+CORS_ALLOW_ALL_ORIGINS: True
+
 ROOT_URLCONF = 'gatekeepr.urls'
 
 TEMPLATES = [
