@@ -2,8 +2,7 @@
 from pathlib import Path
 from datetime import timedelta
 import dj_database_url
-import mimetypes
-mimetypes.add_type("application/javascript", ".js", True)
+
 import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -37,7 +36,6 @@ INSTALLED_APPS = [
     'djoser',
     "corsheaders",
     'rest_framework.authtoken',
-    'django_vite',
 
 ]
 
@@ -140,13 +138,6 @@ STATICFILES_DIRS = [
 
 # This is where collectstatic will gather static files for production
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # Different folder for production static files
-
-DJANGO_VITE = {
-    "default": {
-        "manifest_path": os.path.join(BASE_DIR, "dist", "manifest.json"),
-        "dev_mode": DEBUG,
-    }
-}
 
 
 DJOSER = {
