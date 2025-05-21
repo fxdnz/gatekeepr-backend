@@ -166,6 +166,7 @@ DJOSER = {
         'activation' : 'accounts.email.CustomActivationEmail',
         'password_reset': 'accounts.email.CustomPasswordResetEmail',
         'confirmation': 'accounts.email.CustomConfirmationEmail',
+        'password_changed_confirmation': 'accounts.email.CustomPasswordChangedConfirmationEmail',
     }
 }
 
