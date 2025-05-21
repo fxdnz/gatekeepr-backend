@@ -146,7 +146,7 @@ STATICFILES_DIRS = [
 # This is where collectstatic will gather static files for production
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # Different folder for production static files
 
-
+FRONTEND_URL = 'https://gatekeepr1.netlify.app'
 DJOSER = {
     'LOGIN_FIELD': 'email',
     'USER_CREATE_PASSWORD_RETYPE': True,

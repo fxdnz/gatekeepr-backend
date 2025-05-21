@@ -1,4 +1,5 @@
 from django.contrib.auth.tokens import default_token_generator
+from django.conf import settings as django_settings
 
 from djoser.email import ActivationEmail
 from djoser import utils
@@ -12,6 +13,7 @@ class CustomActivationEmail(ActivationEmail):
         context = super().get_context_data()
 
         user = context.get("user")
+        context["frontend_url"] = django_settings.FRONTEND_URL
         context["uid"] = utils.encode_uid(user.pk)
         context["token"] = default_token_generator.make_token(user)
         context["url"] = settings.ACTIVATION_URL.format(**context)

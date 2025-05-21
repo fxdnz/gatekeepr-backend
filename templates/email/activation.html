@@ -5,10 +5,10 @@
 {% endblock subject %}
 
 {% block text_body %}
-{% blocktrans %}Kani kuyaw {{ site_name }}.{% endblocktrans %}
+{% blocktrans %}You're receiving this email because you need to finish activation process on {{ site_name }}.{% endblocktrans %}
 
 {% trans "Please go to the following page to activate account:" %}
-{{ protocol }}://{{ domain }}/{{ url|safe }}
+{{ frontend_url }}/{{ url|safe }}
 
 {% trans "Thanks for using our site!" %}
 
@@ -16,10 +16,10 @@
 {% endblock text_body %}
 
 {% block html_body %}
-<p>{% blocktrans %}try kung kani ba or kato{{ site_name }}.{% endblocktrans %}</p>
+<p>{% blocktrans %}You're receiving this email because you need to finish activation process on {{ site_name }}.{% endblocktrans %}</p>
 
 <p>{% trans "Please go to the following page to activate account:" %}</p>
-<p><a href="{{ protocol }}://{{ domain }}/{{ url|safe }}">{{ protocol }}://{{ domain }}/{{ url|safe }}</a></p>
+<p><a href="{{ frontend_url }}/{{ url|safe }}">{{ frontend_url }}/{{ url|safe }}</a></p>
 
 <p>{% trans "Thanks for using our site!" %}</p>
 
