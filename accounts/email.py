@@ -1,7 +1,7 @@
 from django.contrib.auth.tokens import default_token_generator
 from django.conf import settings as django_settings
 
-from djoser.email import ActivationEmail, PasswordResetEmail, ConfirmationEmail
+from djoser.email import ActivationEmail, PasswordResetEmail, ConfirmationEmail, PasswordChangedConfirmationEmail
 from djoser import utils
 from djoser.conf import settings
 
@@ -35,6 +35,16 @@ class CustomPasswordResetEmail(PasswordResetEmail):
 
 class CustomConfirmationEmail(ConfirmationEmail):
     template_name = "email/confirmation.html"
+
+    def get_context_data(self):
+        # ActivationEmail can be deleted
+        context = super().get_context_data()
+
+        context["frontend_url"] = django_settings.FRONTEND_URL
+        return context
+
+class CustomPasswordChangedConfirmationEmail(PasswordChangedConfirmationEmail):
+    template_name = "email/password_changed_confirmation.html"
 
     def get_context_data(self):
         # ActivationEmail can be deleted
