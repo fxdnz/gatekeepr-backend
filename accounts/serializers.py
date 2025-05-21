@@ -11,7 +11,7 @@ class UserCreateSerializer(BaseUserCreateSerializer):
     def create(self, validated_data):
         print("Custom serializer create method triggered")  # <-- This should show up in the terminal
         user = super().create(validated_data)
-        admin_login_url = 'http://localhost:8000/admin'
+        admin_login_url = 'https//gatekeepr-backend.onrender.com/admin/'
 
         send_mail(
             subject='New User Registration - Approval Needed',
