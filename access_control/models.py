@@ -24,17 +24,6 @@ class Visitor(models.Model):
     purpose = models.TextField()
     timestamp = models.DateTimeField(auto_now_add=True)
 
-    def save(self, *args, **kwargs):
-        is_new = not self.pk  # Check if this is a new creation
-        super().save(*args, **kwargs)
-        
-        if is_new:
-            AccessLog.objects.create(
-                type='VISITOR',
-                action='ENTRY',
-                visitor_log=self,
-            )
-
 class ParkingSlot(models.Model):
     slot_number = models.CharField(max_length=10, unique=True, null=True, blank=True)
     status = models.CharField(max_length=10, choices=[('AVAILABLE', 'Available'), ('OCCUPIED', 'Occupied')])
