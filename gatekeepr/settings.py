@@ -155,14 +155,18 @@ DJOSER = {
     'SEND_CONFIRMATION_EMAIL': True,
     'SET_PASSWORD_RETYPE': True,
     'PASSWORD_RESET_CONFIRM_RETYPE': True,
-    'USERNAME_RESET_CONFIRM_URL': 'email/reset/confirm/{uid}/{token}',
-    'PASSWORD_RESET_CONFIRM_URL': 'password/reset/confirm/{uid}/{token}',
-    'ACTIVATION_URL': 'activate/{uid}/{token}',
+    'ACTIVATION_URL': 'activate/{uid}/{token}',  # Used in activation email
+    'PASSWORD_RESET_CONFIRM_URL': 'password/reset/confirm/{uid}/{token}',  # Used in reset email
     'SEND_ACTIVATION_EMAIL': True,
     'SERIALIZERS': {
         'user_create': 'accounts.serializers.UserCreateSerializer',
     },
+    'EMAIL': {
+        'activation': 'accounts.email.CustomActivationEmail',
+        'password_reset': 'accounts.email.CustomPasswordResetEmail',
+    }
 }
+
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 REST_FRAMEWORK = {
