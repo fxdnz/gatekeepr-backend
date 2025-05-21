@@ -148,6 +148,8 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # Different folder for prod
 
 
 DJOSER = {
+    'DOMAIN': 'None',
+    'SITE_NAME': 'Gatekeepr',
     'LOGIN_FIELD': 'email',
     'USER_CREATE_PASSWORD_RETYPE': True,
     'USERNAME_CHANGED_EMAIL_CONFIRMATION': True,

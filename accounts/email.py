@@ -1,15 +1,14 @@
 from djoser.email import ActivationEmail, PasswordResetEmail
 from django.core.mail import EmailMultiAlternatives
 
-
 class CustomActivationEmail(ActivationEmail):
     def get_context_data(self):
         context = super().get_context_data()
+        # Explicitly set the frontend URL without the backend domain
         context['url'] = f"https://gatekeepr1.netlify.app/activate/{context['uid']}/{context['token']}"
+        context['domain'] = None  # Prevent Djoser from prepending the backend domain
+        context['site_name'] = 'Gatekeepr'
         return context
-
-    def get_link_url(self, context):
-        return context['url']  # 🔥 This stops Djoser from prepending the backend domain
 
     def send(self, to, *args, **kwargs):
         context = self.get_context_data()
@@ -24,15 +23,14 @@ class CustomActivationEmail(ActivationEmail):
         msg = EmailMultiAlternatives(subject, body, self.from_email, [to])
         msg.send()
 
-
 class CustomPasswordResetEmail(PasswordResetEmail):
     def get_context_data(self):
         context = super().get_context_data()
+        # Explicitly set the frontend URL without the backend domain
         context['url'] = f"https://gatekeepr1.netlify.app/password/reset/confirm/{context['uid']}/{context['token']}"
+        context['domain'] = None  # Prevent Djoser from prepending the backend domain
+        context['site_name'] = 'Gatekeepr'
         return context
-
-    def get_link_url(self, context):
-        return context['url']  # 🔥 Prevents backend domain prefix
 
     def send(self, to, *args, **kwargs):
         context = self.get_context_data()
