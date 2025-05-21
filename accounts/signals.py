@@ -10,7 +10,7 @@ def handle_user_emails(sender, instance, created, **kwargs):
     # (1) When a new user is created
     if created and not instance.is_superuser:
         # Email to admin
-        admin_login_url = 'https//gatekeepr-backend.onrender.com/admin/'
+        admin_login_url = "https://gatekeepr-backend.onrender.com/admin/"
         send_mail(
             subject='New User Registration - Approval Needed',
             message=(
