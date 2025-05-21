@@ -1,6 +1,6 @@
 from django.contrib.auth.tokens import default_token_generator
 
-from djsoer.email import ActivationEmail
+from djoser.email import ActivationEmail
 from djoser import utils
 from djoser.conf import settings
 
