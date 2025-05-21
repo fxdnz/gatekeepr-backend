@@ -147,6 +147,7 @@ STATICFILES_DIRS = [
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # Different folder for production static files
 
 FRONTEND_URL = 'https://gatekeepr1.netlify.app'
+
 DJOSER = {
     'LOGIN_FIELD': 'email',
     'USER_CREATE_PASSWORD_RETYPE': True,
@@ -163,6 +164,8 @@ DJOSER = {
     },
     'EMAIL': {
         'activation' : 'accounts.email.CustomActivationEmail',
+        'password_reset': 'accounts.email.CustomPasswordResetEmail',
+        'confirmation': 'accounts.email.CustomConfirmationEmail',
     }
 }
 
