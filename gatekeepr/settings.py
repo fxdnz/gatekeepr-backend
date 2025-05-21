@@ -53,11 +53,12 @@ MIDDLEWARE = [
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://localhost:8000",
+    "http://localhost:57617",
     "https://gatekeepr1.netlify.app",
     
 ]
 
-CORS_ALLOW_ALL_ORIGINS: True
+CORS_ALLOW_ALL_ORIGIN = True
 
 ROOT_URLCONF = 'gatekeepr.urls'
 
