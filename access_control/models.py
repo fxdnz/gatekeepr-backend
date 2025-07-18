@@ -25,12 +25,22 @@ class Visitor(models.Model):
     timestamp = models.DateTimeField(auto_now_add=True)
 
 class ParkingSlot(models.Model):
+    SLOT_TYPES = [
+        ('OWNED', 'Owned'),
+        ('RENTED', 'Rented'),
+        ('PWD', 'PWD'),
+        ('FREE', 'Free Parking'),
+        ('OPEN', 'Open'),
+    ]
+
     slot_number = models.CharField(max_length=10, unique=True, null=True, blank=True)
     status = models.CharField(max_length=10, choices=[('AVAILABLE', 'Available'), ('OCCUPIED', 'Occupied')])
+    type = models.CharField(max_length=10, choices=SLOT_TYPES, default='OPEN')
     resident = models.ForeignKey(Resident, on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self):
-        return f"Slot No: {self.slot_number} - {self.status}"
+        return f"Slot No: {self.slot_number} - {self.status} - {self.get_type_display()}"
+
 
 class AccessLog(models.Model):
     ENTRY = 'ENTRY'
