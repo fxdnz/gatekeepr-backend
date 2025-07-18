@@ -13,7 +13,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('SECRET_KEY')
+SECRET_KEY = '4d851d0b029af74b808a170f6ed2189d' #Change lang sa SECRET_KEY paghuman
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'False') == 'True'
@@ -90,7 +90,7 @@ DATABASES = {
     }
 }
 
-DATABASES ['default'] = dj_database_url.parse("postgresql://capstone_postgres_gatekeepr_user:gBYMQxNhZuwOeEShLLPfgadetYSvhaEM@dpg-d0il5mi4d50c73dne80g-a.singapore-postgres.render.com/capstone_postgres_gatekeepr")
+DATABASES ['default'] = dj_database_url.parse("postgresql://gatekeepr_admin:ZcuLYSx3tsXyxofMwc5J0DBbYKpanxVK@dpg-d1t0hu6mcj7s73b10140-a.singapore-postgres.render.com/db_gatekeepr")
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
