@@ -60,6 +60,18 @@ CORS_ALLOWED_ORIGINS = [
 
 CORS_ALLOW_ALL_ORIGIN = True
 
+CORS_ALLOWED_HEADERS = [   # dioca nag add ani taman sa x requested with
+    'accept',
+    'accept-encoding',
+    'authorization',    
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]  			   # taman dari
+
 ROOT_URLCONF = 'gatekeepr.urls'
 
 TEMPLATES = [
