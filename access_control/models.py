@@ -40,6 +40,7 @@ class ParkingSlot(models.Model):
         ('BUILDING_D', 'Building D'),
         ('BUILDING_E', 'Building E'),
         ('BUILDING_F', 'Building F'),
+        ('BUILDING_G', 'Building G'), 
         ('ADMIN', 'Admin'),
     ]
 
