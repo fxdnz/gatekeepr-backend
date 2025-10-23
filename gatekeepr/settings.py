@@ -102,7 +102,7 @@ DATABASES = {
     }
 }
 
-DATABASES ['default'] = dj_database_url.parse("postgresql://gatekeepr_admin:ZcuLYSx3tsXyxofMwc5J0DBbYKpanxVK@dpg-d1t0hu6mcj7s73b10140-a.singapore-postgres.render.com/db_gatekeepr")
+DATABASES ['default'] = dj_database_url.parse("postgresql://gatekeepr_admin:Q8YWyMfjBcIIdKrjmQBHwvEzUFH1j0UG@dpg-d3t423ripnbc738e2qjg-a.singapore-postgres.render.com/db_gatekeepr_zcf0")
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
