@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.db import models
 
 # Create your models here.
@@ -40,7 +41,7 @@ class ParkingSlot(models.Model):
         ('BUILDING_D', 'Building D'),
         ('BUILDING_E', 'Building E'),
         ('BUILDING_F', 'Building F'),
-        ('BUILDING_G', 'Building G'), 
+        ('BUILDING_G', 'Building G'),
         ('ADMIN', 'Admin'),
     ]
 
@@ -49,6 +50,17 @@ class ParkingSlot(models.Model):
     type = models.CharField(max_length=10, choices=SLOT_TYPES, default='OPEN')
     resident = models.ForeignKey('Resident', on_delete=models.SET_NULL, null=True, blank=True)
     location = models.CharField(max_length=20, choices=LOCATION_CHOICES, null=True, blank=True)
+
+    MAX_SLOTS = 78  #limit to 78 for familia apartments
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        if not self.pk and ParkingSlot.objects.count() >= self.MAX_SLOTS:
+            raise ValidationError(f"Cannot create more than {self.MAX_SLOTS} parking slots.")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()  # run validation before saving
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Slot No: {self.slot_number} - {self.status} - {self.get_type_display()}"
