@@ -132,13 +132,42 @@ def validate_rfid(request, rfid_uid):
             parking = None
 
             if action == 'ENTRY':
-                # If resident already has a parking slot, update its status to 'OCCUPIED'
+                # If resident already has a parking slot and it is available, update its status to 'OCCUPIED'
                 if resident.parking_slot:
                     parking = resident.parking_slot
                     if parking.status == 'AVAILABLE':
                         parking.status = 'OCCUPIED'
                         parking.save()
-                # If resident does not have a parking slot, do nothing
+                    # If the parking slot is already occupied, do nothing but log the action
+                    elif parking.status == 'OCCUPIED':
+                        # Log the entry attempt
+                        AccessLog.objects.create(
+                            type='RESIDENT',
+                            action='ENTRY',
+                            resident=resident,
+                            parking=parking
+                        )
+                        return Response({
+                            'status': 'success',
+                            'action': 'ENTRY',
+                            'resident': ResidentSerializer(resident).data,
+                            'message': 'Resident entry logged, parking slot already occupied.'
+                        }, status=status.HTTP_200_OK)
+
+                # If resident does not have a parking slot, do nothing but log the entry
+                else:
+                    AccessLog.objects.create(
+                        type='RESIDENT',
+                        action='ENTRY',
+                        resident=resident,
+                        parking=None
+                    )
+                    return Response({
+                        'status': 'success',
+                        'action': 'ENTRY',
+                        'resident': ResidentSerializer(resident).data,
+                        'message': 'Resident entry logged, no parking assigned.'
+                    }, status=status.HTTP_200_OK)
 
             elif action == 'EXIT':
                 # Free resident's current parking if it's 'OCCUPIED'
@@ -148,13 +177,13 @@ def validate_rfid(request, rfid_uid):
                     parking.resident = None  # Remove the resident from the parking slot
                     parking.save()
 
-            # Log the access
-            AccessLog.objects.create(
-                type='RESIDENT',
-                action=action,
-                resident=resident,
-                parking=parking
-            )
+                # Log the exit action
+                AccessLog.objects.create(
+                    type='RESIDENT',
+                    action='EXIT',
+                    resident=resident,
+                    parking=parking
+                )
 
         return Response({
             'status': 'success',

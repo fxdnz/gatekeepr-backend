@@ -32,6 +32,13 @@ class Resident(models.Model):
     plate_number = models.CharField(max_length=20)
     unit_number = models.CharField(max_length=10)
     phone = models.CharField(max_length=15)
+    parking_slot = models.ForeignKey(
+        'ParkingSlot',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='residents_parking_slot'  # Add a related_name here to avoid reverse name clash
+    )
 
     def __str__(self):
         return f"{self.name} (Apt {self.unit_number})"
@@ -78,7 +85,7 @@ class ParkingSlot(models.Model):
     slot_number = models.CharField(max_length=10, unique=True, null=True, blank=True)
     status = models.CharField(max_length=10, choices=[('AVAILABLE', 'Available'), ('OCCUPIED', 'Occupied')])
     type = models.CharField(max_length=10, choices=SLOT_TYPES, default='OPEN')
-    resident = models.ForeignKey('Resident', on_delete=models.SET_NULL, null=True, blank=True)
+    resident = models.ForeignKey('Resident', on_delete=models.SET_NULL, null=True, blank=True, related_name="parking_slot_reverse")  # Add related_name here
     location = models.CharField(max_length=20, choices=LOCATION_CHOICES, null=True, blank=True)
 
     MAX_SLOTS = 78  # Limit to 78 slots for Familia Apartments
