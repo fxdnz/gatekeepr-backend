@@ -132,19 +132,20 @@ def validate_rfid(request, rfid_uid):
             parking = None
 
             if action == 'ENTRY':
-                # Assign available parking
-                parking = ParkingSlot.objects.filter(status='AVAILABLE').first()
-                if parking:
-                    parking.status = 'OCCUPIED'
-                    parking.resident = resident
-                    parking.save()
+                # If resident already has a parking slot, update its status to 'OCCUPIED'
+                if resident.parking_slot:
+                    parking = resident.parking_slot
+                    if parking.status == 'AVAILABLE':
+                        parking.status = 'OCCUPIED'
+                        parking.save()
+                # If resident does not have a parking slot, do nothing
 
             elif action == 'EXIT':
-                # Free resident's current parking
-                parking = ParkingSlot.objects.filter(resident=resident, status='OCCUPIED').first()
-                if parking:
+                # Free resident's current parking if it's 'OCCUPIED'
+                if resident.parking_slot and resident.parking_slot.status == 'OCCUPIED':
+                    parking = resident.parking_slot
                     parking.status = 'AVAILABLE'
-                    parking.resident = None
+                    parking.resident = None  # Remove the resident from the parking slot
                     parking.save()
 
             # Log the access
