@@ -88,73 +88,88 @@ class AccessLogRetrieveAPIView(generics.RetrieveAPIView):
     permission_classes = [IsAuthenticated]
 
 
-# ---------------- RFID Validation ----------------
+# ---------------- RFID Validation (Supports Entry & Exit Gates) ----------------
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def validate_rfid(request, rfid_uid):
     """
-    Validate an RFID UID using the RFIDTag model.
-    Checks if it's active, linked to a resident, or registered as a visitor.
+    Validate an RFID UID.
+    Requires query parameter: ?action=ENTRY or ?action=EXIT
+    Used by two separate RFID readers: Entry Gate & Exit Gate.
     """
-
     cleaned_uid = rfid_uid.upper().strip()
+    action = request.query_params.get('action', '').upper()
+
+    # Validate action
+    if action not in ['ENTRY', 'EXIT']:
+        return Response({
+            'status': 'error',
+            'message': 'Missing or invalid action. Use ?action=ENTRY or ?action=EXIT'
+        }, status=status.HTTP_400_BAD_REQUEST)
 
     try:
-        # 1️⃣ Find RFID tag
+        # === 1. Find RFID Tag ===
         tag = RFIDTag.objects.get(uid=cleaned_uid)
 
-        # 2️⃣ Check if active
+        # === 2. Check if Active ===
         if not tag.is_active:
             return Response({
                 'status': 'error',
-                'message': f'RFID tag {cleaned_uid} is inactive. Please contact admin.'
+                'message': f'RFID tag {cleaned_uid} is inactive. Contact admin.'
             }, status=status.HTTP_403_FORBIDDEN)
 
-        # 3️⃣ Find linked resident
+        # === 3. Find Linked Resident ===
         try:
             resident = Resident.objects.get(rfid_tag=tag)
         except Resident.DoesNotExist:
             return Response({
                 'status': 'error',
-                'message': f'No resident linked to RFID tag {cleaned_uid}.'
+                'message': f'No resident linked to RFID {cleaned_uid}.'
             }, status=status.HTTP_404_NOT_FOUND)
 
-        # 4️⃣ Determine ENTRY / EXIT
-        last_action = AccessLog.objects.filter(resident=resident).order_by('-timestamp').first()
-
+        # === 4. Handle Parking & Logging ===
         with transaction.atomic():
-            if last_action and last_action.action == 'ENTRY':
-                action = 'EXIT'
-                parking = ParkingSlot.objects.filter(resident=resident).first()
-                if parking:
-                    parking.status = 'AVAILABLE'
-                    parking.resident = None
-                    parking.save()
-            else:
-                action = 'ENTRY'
+            parking = None
+
+            if action == 'ENTRY':
+                # Assign available parking
                 parking = ParkingSlot.objects.filter(status='AVAILABLE').first()
                 if parking:
                     parking.status = 'OCCUPIED'
                     parking.resident = resident
                     parking.save()
 
-            # 5️⃣ Log the event
+            elif action == 'EXIT':
+                # Free resident's current parking
+                parking = ParkingSlot.objects.filter(resident=resident, status='OCCUPIED').first()
+                if parking:
+                    parking.status = 'AVAILABLE'
+                    parking.resident = None
+                    parking.save()
+
+            # Log the access
             AccessLog.objects.create(
                 type='RESIDENT',
                 action=action,
                 resident=resident,
-                parking=parking if parking else None,
+                parking=parking
             )
 
         return Response({
             'status': 'success',
             'action': action,
             'resident': ResidentSerializer(resident).data,
-            'parking': parking.slot_number if parking else None
+            'parking_slot': parking.slot_number if parking else None
         }, status=status.HTTP_200_OK)
 
     except RFIDTag.DoesNotExist:
-        # 6️⃣ Try to match Visitor
+        # === Handle Visitor (Only ENTRY allowed via RFID) ===
+        if action != 'ENTRY':
+            return Response({
+                'status': 'error',
+                'message': 'Visitors cannot exit using RFID. Use driver\'s license at entry only.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
         try:
             visitor = Visitor.objects.get(drivers_license=cleaned_uid)
             AccessLog.objects.create(
@@ -165,11 +180,11 @@ def validate_rfid(request, rfid_uid):
             return Response({
                 'status': 'success',
                 'visitor': VisitorSerializer(visitor).data,
-                'message': 'Visitor entry logged.'
+                'message': 'Visitor entry logged successfully.'
             }, status=status.HTTP_200_OK)
 
         except Visitor.DoesNotExist:
             return Response({
                 'status': 'error',
-                'message': f'RFID UID {cleaned_uid} not registered as resident or visitor.'
+                'message': f'UID {cleaned_uid} not registered as resident or visitor.'
             }, status=status.HTTP_404_NOT_FOUND)
