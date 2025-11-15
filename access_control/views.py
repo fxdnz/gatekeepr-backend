@@ -89,9 +89,11 @@ class AccessLogRetrieveAPIView(generics.RetrieveAPIView):
 def validate_rfid(request, rfid_uid):
     rfid_uid = rfid_uid.upper().strip()
 
+    # ---------- 1. Find RFID Card ----------
     try:
         rfid_card = RFIDCard.objects.select_related('resident', 'visitor').get(
-            rfid_uid=rfid_uid, is_active=True
+            rfid_uid=rfid_uid,
+            is_active=True
         )
     except RFIDCard.DoesNotExist:
         return Response(
@@ -99,19 +101,26 @@ def validate_rfid(request, rfid_uid):
             status=404
         )
 
-    # ---------- RESIDENT (permanent) ----------
+    # ---------- 2. RESIDENT (Permanent Card) ----------
     if rfid_card.resident:
         resident = rfid_card.resident
-        last_log = AccessLog.objects.filter(resident=resident).order_by('-timestamp').first()
 
-        if last_log and last_log.action == 'ENTRY':
-            action = 'EXIT'
-            parking = resident.parking_slot
-            if parking:
+        # Get last action
+        last_log = AccessLog.objects.filter(resident=resident).order_by('-timestamp').first()
+        action = 'EXIT' if (last_log and last_log.action == 'ENTRY') else 'ENTRY'
+
+        parking = None
+
+        if action == 'EXIT':
+            # Free up current slot
+            if resident.parking_slot:
+                parking = resident.parking_slot
                 parking.status = 'AVAILABLE'
                 parking.save()
+                resident.parking_slot = None
+                resident.save()
         else:
-            action = 'ENTRY'
+            # Assign new available slot
             parking = ParkingSlot.objects.filter(status='AVAILABLE').first()
             if parking:
                 parking.status = 'OCCUPIED'
@@ -119,6 +128,7 @@ def validate_rfid(request, rfid_uid):
                 resident.parking_slot = parking
                 resident.save()
 
+        # Create log
         access_log = AccessLog.objects.create(
             type='RESIDENT',
             action=action,
@@ -133,13 +143,15 @@ def validate_rfid(request, rfid_uid):
             'parking': parking.slot_number if parking else None
         })
 
-    # ---------- VISITOR (temporary) ----------
+    # ---------- 3. VISITOR (Temporary Card) ----------
     elif rfid_card.visitor and rfid_card.is_temporary:
         visitor = rfid_card.visitor
-        # Temporary visitors use fixed slots CP57-CP61
+
+        # Fixed slots for visitors
         fixed_slots = ['CP57', 'CP58', 'CP59', 'CP60', 'CP61']
         parking = ParkingSlot.objects.filter(
-            slot_number__in=fixed_slots, status='AVAILABLE'
+            slot_number__in=fixed_slots,
+            status='AVAILABLE'
         ).first()
 
         if parking:
@@ -160,7 +172,7 @@ def validate_rfid(request, rfid_uid):
             'parking': parking.slot_number if parking else None
         })
 
-    # ---------- Fallback ----------
+    # ---------- 4. Invalid Card (no resident/visitor) ----------
     return Response(
         {'status': 'error', 'message': 'RFID not linked to any person'},
         status=400
