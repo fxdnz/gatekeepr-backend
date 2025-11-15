@@ -8,15 +8,10 @@ from .views import (
     ParkingSlotRetrieveUpdateDestroyAPIView,
     AccessLogListAPIView,
     AccessLogRetrieveAPIView,
-    RFIDCardListCreateAPIView, RFIDCardRetrieveUpdateDestroyAPIView,
     validate_rfid
 )
 
 urlpatterns = [
-    # Resident endpoints
-    path('rfid-cards/', RFIDCardListCreateAPIView.as_view(), name='rfidcard-list'),
-    path('rfid-cards/<int:pk>/', RFIDCardRetrieveUpdateDestroyAPIView.as_view(), name='rfidcard-detail'),
-
     # Resident endpoints
     path('residents/', ResidentListCreateAPIView.as_view(), name='resident-list'),
     path('residents/<int:pk>/', ResidentRetrieveUpdateDestroyAPIView.as_view(), name='resident-detail'),
