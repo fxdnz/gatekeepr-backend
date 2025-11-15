@@ -1,3 +1,4 @@
+import logging
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -11,6 +12,9 @@ from .serializers import (
 )
 
 User = get_user_model()
+
+# Setup logger
+logger = logging.getLogger(__name__)
 
 
 # ------------------- Resident Views -------------------
@@ -42,7 +46,7 @@ class VisitorListCreateAPIView(generics.ListCreateAPIView):
             AccessLog.objects.create(
                 type='VISITOR',
                 action='ENTRY',
-                visitor_log=visitor,
+                visitor_log=visitor,  # ← Matches model
             )
 
             return Response({
@@ -88,6 +92,7 @@ class AccessLogRetrieveAPIView(generics.RetrieveAPIView):
 @permission_classes([IsAuthenticated])
 def validate_rfid(request, rfid_uid):
     rfid_uid = rfid_uid.upper().strip()
+    logger.info(f"[RFID VALIDATE] UID: {rfid_uid}")
 
     # ---------- 1. Find RFID Card ----------
     try:
@@ -95,7 +100,9 @@ def validate_rfid(request, rfid_uid):
             rfid_uid=rfid_uid,
             is_active=True
         )
+        logger.info(f"[RFID] Found: {rfid_card}")
     except RFIDCard.DoesNotExist:
+        logger.warning(f"[RFID] Not found or inactive: {rfid_uid}")
         return Response(
             {'status': 'error', 'message': 'RFID not registered or inactive'},
             status=404
@@ -104,50 +111,55 @@ def validate_rfid(request, rfid_uid):
     # ---------- 2. RESIDENT (Permanent Card) ----------
     if rfid_card.resident:
         resident = rfid_card.resident
+        logger.info(f"[RESIDENT] {resident.name} (Unit {resident.unit_number})")
 
         # Get last action
         last_log = AccessLog.objects.filter(resident=resident).order_by('-timestamp').first()
         action = 'EXIT' if (last_log and last_log.action == 'ENTRY') else 'ENTRY'
+        logger.info(f"[RESIDENT] Last: {last_log.action if last_log else 'None'} → Next: {action}")
 
         parking = None
 
-        if action == 'EXIT':
-            # Free up current slot
-            if resident.parking_slot:
+        with transaction.atomic():
+            if action == 'EXIT' and resident.parking_slot:
                 parking = resident.parking_slot
                 parking.status = 'AVAILABLE'
                 parking.save()
                 resident.parking_slot = None
                 resident.save()
-        else:
-            # Assign new available slot
-            parking = ParkingSlot.objects.filter(status='AVAILABLE').first()
-            if parking:
-                parking.status = 'OCCUPIED'
-                parking.save()
-                resident.parking_slot = parking
-                resident.save()
+                logger.info(f"[EXIT] Freed slot: {parking.slot_number}")
 
-        # Create log
-        access_log = AccessLog.objects.create(
-            type='RESIDENT',
-            action=action,
-            resident=resident,
-            parking=parking
-        )
+            elif action == 'ENTRY':
+                parking = ParkingSlot.objects.filter(status='AVAILABLE').first()
+                if parking:
+                    parking.status = 'OCCUPIED'
+                    parking.save()
+                    resident.parking_slot = parking
+                    resident.save()
+                    logger.info(f"[ENTRY] Assigned: {parking.slot_number}")
+                else:
+                    logger.warning("[ENTRY] No available slot for resident")
+
+            # Create log
+            AccessLog.objects.create(
+                type='RESIDENT',
+                action=action,
+                resident=resident,
+                parking=parking
+            )
 
         return Response({
             'status': 'success',
             'action': action,
             'resident': ResidentSerializer(resident).data,
-            'parking': parking.slot_number if parking else None
-        })
+            'parking': parking.slot_number if parking and parking.slot_number else None
+        }, status=200)
 
     # ---------- 3. VISITOR (Temporary Card) ----------
     elif rfid_card.visitor and rfid_card.is_temporary:
         visitor = rfid_card.visitor
+        logger.info(f"[VISITOR] {visitor.name} – {visitor.purpose}")
 
-        # Fixed slots for visitors
         fixed_slots = ['CP57', 'CP58', 'CP59', 'CP60', 'CP61']
         parking = ParkingSlot.objects.filter(
             slot_number__in=fixed_slots,
@@ -157,23 +169,29 @@ def validate_rfid(request, rfid_uid):
         if parking:
             parking.status = 'OCCUPIED'
             parking.save()
+            logger.info(f"[VISITOR] Assigned: {parking.slot_number}")
+        else:
+            logger.warning("[VISITOR] No available visitor slot")
 
-        access_log = AccessLog.objects.create(
-            type='VISITOR',
-            action='ENTRY',
-            visitor_log=visitor,
-            parking=parking
-        )
+        with transaction.atomic():
+            AccessLog.objects.create(
+                type='VISITOR',
+                action='ENTRY',
+                visitor_log=visitor,  # ← Correct field name
+                parking=parking
+            )
 
         return Response({
             'status': 'success',
             'action': 'ENTRY',
             'visitor': VisitorSerializer(visitor).data,
-            'parking': parking.slot_number if parking else None
-        })
+            'parking': parking.slot_number if parking and parking.slot_number else None
+        }, status=200)
 
-    # ---------- 4. Invalid Card (no resident/visitor) ----------
-    return Response(
-        {'status': 'error', 'message': 'RFID not linked to any person'},
-        status=400
-    )
+    # ---------- 4. Invalid Card ----------
+    else:
+        logger.warning(f"[RFID] Unlinked card: {rfid_card}")
+        return Response(
+            {'status': 'error', 'message': 'RFID not linked to any person'},
+            status=400
+        )
