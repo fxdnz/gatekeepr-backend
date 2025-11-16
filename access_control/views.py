@@ -104,11 +104,8 @@ class AccessLogRetrieveAPIView(generics.RetrieveAPIView):
 def validate_rfid(request):
     """
     Accepts JSON: {'rfid_uid': 'ABC123', 'action': 'ENTRY' or 'EXIT'}
-    Validates RFID and uses action for parking/log creation
+    Uses permanent parking assignments
     """
-    # The @api_view decorator + TokenAuthentication should handle CSRF exemption
-    # But we use our custom authentication class for extra safety
-    
     try:
         # Get data from JSON request
         rfid_uid = request.data.get('rfid_uid')
@@ -142,31 +139,42 @@ def validate_rfid(request):
                 'message': 'RFID not registered'
             }, status=status.HTTP_404_NOT_FOUND)
 
-        # Handle parking based on action
+        # Handle parking based on action - PERMANENT ASSIGNMENT LOGIC
         parking = None
         parking_message = ""
         
         if action == 'ENTRY':
-            # Find available parking slot for entry
-            parking = ParkingSlot.objects.filter(status='AVAILABLE').first()
+            # Check if resident has an assigned parking slot
+            parking = ParkingSlot.objects.filter(owner=resident).first()
+            
             if parking:
-                parking.status = 'OCCUPIED'
-                parking.resident = resident
-                parking.save()
-                parking_message = f"Assigned parking slot {parking.slot_number}"
+                if parking.status == 'AVAILABLE':
+                    parking.status = 'OCCUPIED'
+                    parking.save()
+                    parking_message = f"Occupied assigned parking slot {parking.slot_number}"
+                else:
+                    parking_message = f"Assigned parking slot {parking.slot_number} is already occupied"
             else:
-                parking_message = "No parking available"
+                parking_message = "No assigned parking slot for this resident"
                 
         elif action == 'EXIT':
-            # Release parking slot on exit
-            parking = ParkingSlot.objects.filter(resident=resident, status='OCCUPIED').first()
+            # Check if resident has an assigned parking slot to release
+            parking = ParkingSlot.objects.filter(owner=resident, status='OCCUPIED').first()
+            
             if parking:
                 parking.status = 'AVAILABLE'
-                parking.resident = None
                 parking.save()
-                parking_message = f"Released parking slot {parking.slot_number}"
+                parking_message = f"Freed assigned parking slot {parking.slot_number}"
             else:
-                parking_message = "No parking slot to release"
+                # Check if they have a parking slot that's already available
+                assigned_parking = ParkingSlot.objects.filter(owner=resident).first()
+                if assigned_parking:
+                    if assigned_parking.status == 'AVAILABLE':
+                        parking_message = f"Assigned parking slot {assigned_parking.slot_number} was already available"
+                    else:
+                        parking_message = f"No occupied parking slot found for resident"
+                else:
+                    parking_message = "No assigned parking slot for this resident"
 
         # Create access log
         access_log = AccessLog.objects.create(
@@ -184,6 +192,7 @@ def validate_rfid(request):
                 'resident': ResidentSerializer(resident).data,
                 'action': action,
                 'parking_slot': parking.slot_number if parking else None,
+                'parking_status': parking.status if parking else 'NO_SLOT',
                 'parking_message': parking_message,
                 'access_log_id': access_log.id,
                 'timestamp': access_log.timestamp
