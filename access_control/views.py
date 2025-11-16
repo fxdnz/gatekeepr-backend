@@ -1,9 +1,9 @@
 from rest_framework import generics, status
-from rest_framework.permissions import IsAuthenticated  # Ensures token authentication is enforced
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.decorators import api_view, permission_classes  # Allow per-view permission control
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.authentication import SessionAuthentication, TokenAuthentication
 from django.db import transaction
-from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth import get_user_model
 from .models import Resident, Visitor, AccessLog, ParkingSlot
 from .serializers import (
@@ -15,22 +15,32 @@ from .serializers import (
 
 User = get_user_model()
 
+# Custom authentication to bypass CSRF for API
+class CsrfExemptSessionAuthentication(SessionAuthentication):
+    """
+    SessionAuthentication without CSRF check for API endpoints
+    """
+    def enforce_csrf(self, request):
+        return  # Bypass CSRF check
+
 # Resident Views
 class ResidentListCreateAPIView(generics.ListCreateAPIView):
     queryset = Resident.objects.all()
     serializer_class = ResidentSerializer
-    permission_classes = [IsAuthenticated]  # Protect this view with authentication
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, CsrfExemptSessionAuthentication]
 
 class ResidentRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Resident.objects.all()
     serializer_class = ResidentSerializer
-    permission_classes = [IsAuthenticated]  # Protect this view with authentication
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, CsrfExemptSessionAuthentication]
 
 # Visitor Log Views
 class VisitorListCreateAPIView(generics.ListCreateAPIView):
     queryset = Visitor.objects.all()
     serializer_class = VisitorSerializer
-   # permission_classes = [IsAuthenticated]  # Protect this view with authentication
+    # permission_classes = [IsAuthenticated]  # Commented out for public access
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -59,40 +69,47 @@ class VisitorListCreateAPIView(generics.ListCreateAPIView):
 class VisitorRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Visitor.objects.all()
     serializer_class = VisitorSerializer
-    permission_classes = [IsAuthenticated]  # Protect this view with authentication
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, CsrfExemptSessionAuthentication]
 
 # Parking Slot Views
 class ParkingSlotListCreateAPIView(generics.ListCreateAPIView):
     queryset = ParkingSlot.objects.all()
     serializer_class = ParkingSlotSerializer
-    permission_classes = [IsAuthenticated]  # Protect this view with authentication
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, CsrfExemptSessionAuthentication]
 
 class ParkingSlotRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = ParkingSlot.objects.all()
     serializer_class = ParkingSlotSerializer
-    permission_classes = [IsAuthenticated]  # Protect this view with authentication
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, CsrfExemptSessionAuthentication]
 
 # Access Log Views (ReadOnly)
 class AccessLogListAPIView(generics.ListAPIView):
     queryset = AccessLog.objects.all()
     serializer_class = AccessLogSerializer
-    permission_classes = [IsAuthenticated]  # Protect this view with authentication
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, CsrfExemptSessionAuthentication]
 
 class AccessLogRetrieveAPIView(generics.RetrieveAPIView):
     queryset = AccessLog.objects.all()
     serializer_class = AccessLogSerializer
-    permission_classes = [IsAuthenticated]  # Protect this view with authentication
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, CsrfExemptSessionAuthentication]
 
-# RFID Validation View (Add token validation via permission_classes)
+# RFID Validation View - FIXED CSRF ISSUE
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
-@csrf_exempt  # Add this to disable CSRF for API
 def validate_rfid(request):
     """
     Accepts JSON: {'rfid_uid': 'ABC123', 'action': 'ENTRY' or 'EXIT'}
     Validates RFID and uses action for parking/log creation
     """
     try:
+        # Debug: Print received data
+        print(f"Received request data: {request.data}")
+        
         # Get data from JSON request
         rfid_uid = request.data.get('rfid_uid')
         action = request.data.get('action')
@@ -174,6 +191,7 @@ def validate_rfid(request):
         })
 
     except Exception as e:
+        print(f"Error in validate_rfid: {str(e)}")
         return Response({
             'status': 'error',
             'message': f'Server error: {str(e)}'
