@@ -3,6 +3,7 @@ from rest_framework.permissions import IsAuthenticated  # Ensures token authenti
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes  # Allow per-view permission control
 from django.db import transaction
+from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth import get_user_model
 from .models import Resident, Visitor, AccessLog, ParkingSlot
 from .serializers import (
@@ -85,10 +86,11 @@ class AccessLogRetrieveAPIView(generics.RetrieveAPIView):
 # RFID Validation View (Add token validation via permission_classes)
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@csrf_exempt  # Add this to disable CSRF for API
 def validate_rfid(request):
     """
     Accepts JSON: {'rfid_uid': 'ABC123', 'action': 'ENTRY' or 'EXIT'}
-    Validates RFID via URL endpoint and uses action for parking/log creation
+    Validates RFID and uses action for parking/log creation
     """
     try:
         # Get data from JSON request
