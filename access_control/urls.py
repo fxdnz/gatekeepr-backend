@@ -29,5 +29,6 @@ urlpatterns = [
     path('access-logs/<int:pk>/', AccessLogRetrieveAPIView.as_view(), name='access-log-detail'),
     
     # RFID validation endpoint
-    path('validate-rfid/<str:rfid_uid>/', validate_rfid, name='validate-rfid'),
+    path('validate-rfid/', validate_rfid, name='validate-rfid'),  
+
 ]
