@@ -176,7 +176,7 @@ def validate_rfid(request):
                 else:
                     parking_message = "No assigned parking slot for this resident"
 
-        # Create access log
+        # Create access log1
         access_log = AccessLog.objects.create(
             type='RESIDENT',
             action=action,
