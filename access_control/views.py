@@ -98,7 +98,7 @@ class AccessLogRetrieveAPIView(generics.RetrieveAPIView):
     permission_classes = [IsAuthenticated]
     authentication_classes = [TokenAuthentication, CsrfExemptSessionAuthentication]
 
-# RFID Validation View - FIXED CSRF ISSUE
+# RFID Validation View - WITH PROPER CSRF EXEMPTION
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def validate_rfid(request):
@@ -106,10 +106,10 @@ def validate_rfid(request):
     Accepts JSON: {'rfid_uid': 'ABC123', 'action': 'ENTRY' or 'EXIT'}
     Validates RFID and uses action for parking/log creation
     """
+    # The @api_view decorator + TokenAuthentication should handle CSRF exemption
+    # But we use our custom authentication class for extra safety
+    
     try:
-        # Debug: Print received data
-        print(f"Received request data: {request.data}")
-        
         # Get data from JSON request
         rfid_uid = request.data.get('rfid_uid')
         action = request.data.get('action')
@@ -191,7 +191,6 @@ def validate_rfid(request):
         })
 
     except Exception as e:
-        print(f"Error in validate_rfid: {str(e)}")
         return Response({
             'status': 'error',
             'message': f'Server error: {str(e)}'

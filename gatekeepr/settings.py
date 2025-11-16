@@ -45,18 +45,22 @@ MIDDLEWARE = [
     'whitenoise.middleware.WhiteNoiseMiddleware',
     "corsheaders.middleware.CorsMiddleware",
     'django.middleware.common.CommonMiddleware',
-    #'django.middleware.csrf.CsrfViewMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
-# CORS_ALLOWED_ORIGINS = [
-#     "http://localhost:5173",
-#     "http://localhost:8000",
-#     "http://localhost:57617",
-#     "https://gatekeepr1.netlify.app",
-    
-# ]
+
+# Add this to your existing settings.py
+CSRF_TRUSTED_ORIGINS = [
+    'https://gatekeepr-backend.onrender.com',
+    'http://localhost:8000',
+    'https://gatekeepr1.netlify.app',
+]
+
+# Optional: These settings help with API security
+CSRF_COOKIE_HTTPONLY = False
+CSRF_USE_SESSIONS = False
 
 CORS_ALLOW_ALL_ORIGINS = True
 
@@ -174,8 +178,7 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES':(
-        'rest_framework.permissions.AllowAny',
-        #'rest_framework.permissions.IsAuthenticated',
+        'rest_framework.permissions.IsAuthenticated',
     ),
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework.authentication.TokenAuthentication',
