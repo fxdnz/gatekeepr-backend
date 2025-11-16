@@ -1,8 +1,5 @@
 from django.core.exceptions import ValidationError
 from django.db import models
-
-# Create your models here.
-from django.db import models
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -48,7 +45,7 @@ class ParkingSlot(models.Model):
     slot_number = models.CharField(max_length=10, unique=True, null=True, blank=True)
     status = models.CharField(max_length=10, choices=[('AVAILABLE', 'Available'), ('OCCUPIED', 'Occupied')])
     type = models.CharField(max_length=10, choices=SLOT_TYPES, default='OPEN')
-    resident = models.ForeignKey('Resident', on_delete=models.SET_NULL, null=True, blank=True)
+    owner = models.ForeignKey('Resident', on_delete=models.SET_NULL, null=True, blank=True)
     location = models.CharField(max_length=20, choices=LOCATION_CHOICES, null=True, blank=True)
 
     MAX_SLOTS = 78  #limit to 78 for familia apartments

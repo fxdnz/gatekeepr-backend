@@ -29,7 +29,7 @@ class ResidentRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView
 class VisitorListCreateAPIView(generics.ListCreateAPIView):
     queryset = Visitor.objects.all()
     serializer_class = VisitorSerializer
-    permission_classes = [IsAuthenticated]  # Protect this view with authentication
+   # permission_classes = [IsAuthenticated]  # Protect this view with authentication
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -83,55 +83,86 @@ class AccessLogRetrieveAPIView(generics.RetrieveAPIView):
     permission_classes = [IsAuthenticated]  # Protect this view with authentication
 
 # RFID Validation View (Add token validation via permission_classes)
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])  # Protect this view with token authentication
-def validate_rfid(request, rfid_uid):
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def validate_rfid(request):
+    """
+    Simple RFID validation endpoint
+    Expects JSON: {'rfid_uid': 'ABC123', 'action': 'ENTRY' or 'EXIT'}
+    """
     try:
-        resident = Resident.objects.get(rfid_uid=rfid_uid.upper().strip())
-        last_action = AccessLog.objects.filter(resident=resident).order_by('-timestamp').first()
+        # Get data from request
+        rfid_uid = request.data.get('rfid_uid')
+        action = request.data.get('action')
 
-        if last_action and last_action.action == 'ENTRY':
-            action = 'EXIT'
-            parking = ParkingSlot.objects.filter(resident=resident).first()
-            if parking:
-                parking.status = 'AVAILABLE'
-                parking.resident = None
-                parking.save()
-        else:
-            action = 'ENTRY'
+        # Validate required fields
+        if not rfid_uid:
+            return Response({
+                'status': 'error',
+                'message': 'rfid_uid is required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        if not action:
+            return Response({
+                'status': 'error', 
+                'message': 'action is required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        if action not in ['ENTRY', 'EXIT']:
+            return Response({
+                'status': 'error',
+                'message': 'action must be ENTRY or EXIT'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Find resident by RFID
+        try:
+            resident = Resident.objects.get(rfid_uid=rfid_uid.upper().strip())
+        except Resident.DoesNotExist:
+            return Response({
+                'status': 'error',
+                'message': 'RFID not registered'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        # Handle parking based on action
+        parking = None
+        if action == 'ENTRY':
+            # Find available parking slot
             parking = ParkingSlot.objects.filter(status='AVAILABLE').first()
             if parking:
                 parking.status = 'OCCUPIED'
                 parking.resident = resident
                 parking.save()
+        elif action == 'EXIT':
+            # Release resident's parking slot
+            parking = ParkingSlot.objects.filter(resident=resident, status='OCCUPIED').first()
+            if parking:
+                parking.status = 'AVAILABLE'
+                parking.resident = None
+                parking.save()
 
+        # Create access log
         access_log = AccessLog.objects.create(
             type='RESIDENT',
             action=action,
             resident=resident,
-            parking=parking if parking else None,
+            parking=parking,
         )
 
+        # Return success response
         return Response({
             'status': 'success',
-            'action': action,
-            'resident': ResidentSerializer(resident).data,
-            'parking': parking.slot_number if parking else None
-        })
+            'message': f'Access {action} recorded successfully',
+            'data': {
+                'resident': ResidentSerializer(resident).data,
+                'action': action,
+                'parking_slot': parking.slot_number if parking else None,
+                'access_log_id': access_log.id,
+                'timestamp': access_log.timestamp
+            }
+        }, status=status.HTTP_200_OK)
 
-    except Resident.DoesNotExist:
-        try:
-            visitor = Visitor.objects.get(drivers_license=rfid_uid.upper().strip())
-            access_log = AccessLog.objects.create(
-                type='VISITOR',
-                action='ENTRY',
-                visitor_log=visitor,
-            )
-
-            return Response({
-                'status': 'success',
-                'visitor': VisitorSerializer(visitor).data,
-            })
-
-        except Visitor.DoesNotExist:
-            return Response({'status': 'error', 'message': 'RFID not registered'}, status=404)
+    except Exception as e:
+        return Response({
+            'status': 'error',
+            'message': f'Server error: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
