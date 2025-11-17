@@ -40,7 +40,7 @@ class ResidentRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView
 class VisitorListCreateAPIView(generics.ListCreateAPIView):
     queryset = Visitor.objects.all()
     serializer_class = VisitorSerializer
-    # permission_classes = [IsAuthenticated]  # Commented out for public access
+    permission_classes = [IsAuthenticated]  # Commented out for public access
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)

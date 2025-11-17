@@ -55,6 +55,7 @@ MIDDLEWARE = [
 CSRF_TRUSTED_ORIGINS = [
     'https://gatekeepr-backend.onrender.com',
     'http://localhost:8000',
+    'http://localhost:5173',
     'https://gatekeepr1.netlify.app',
 ]
 
