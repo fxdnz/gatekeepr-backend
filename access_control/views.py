@@ -2,62 +2,78 @@ from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.authentication import SessionAuthentication, TokenAuthentication
 from django.db import transaction
-from django.contrib.auth import get_user_model
-from .models import Resident, Visitor, AccessLog, ParkingSlot
+from .models import Resident, Visitor, RFID, ParkingSlot, AccessLog
 from .serializers import (
     ResidentSerializer,
     VisitorSerializer,
-    AccessLogSerializer,
-    ParkingSlotSerializer
+    RFIDSerializer,
+    ParkingSlotSerializer,
+    AccessLogSerializer
 )
 
-User = get_user_model()
-
-# Custom authentication to bypass CSRF for API
-class CsrfExemptSessionAuthentication(SessionAuthentication):
-    """
-    SessionAuthentication without CSRF check for API endpoints
-    """
-    def enforce_csrf(self, request):
-        return  # Bypass CSRF check
-
+# -------------------
 # Resident Views
+# -------------------
 class ResidentListCreateAPIView(generics.ListCreateAPIView):
     queryset = Resident.objects.all()
     serializer_class = ResidentSerializer
     permission_classes = [IsAuthenticated]
-    authentication_classes = [TokenAuthentication, CsrfExemptSessionAuthentication]
 
 class ResidentRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Resident.objects.all()
     serializer_class = ResidentSerializer
     permission_classes = [IsAuthenticated]
-    authentication_classes = [TokenAuthentication, CsrfExemptSessionAuthentication]
 
-# Visitor Log Views
+
+# -------------------
+# RFID Views
+# -------------------
+class RFIDListCreateAPIView(generics.ListCreateAPIView):
+    queryset = RFID.objects.all()
+    serializer_class = RFIDSerializer
+    permission_classes = [IsAuthenticated]
+
+class RFIDRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = RFID.objects.all()
+    serializer_class = RFIDSerializer
+    permission_classes = [IsAuthenticated]
+
+
+# -------------------
+# Parking Slot Views
+# -------------------
+class ParkingSlotListCreateAPIView(generics.ListCreateAPIView):
+    queryset = ParkingSlot.objects.all()
+    serializer_class = ParkingSlotSerializer
+    permission_classes = [IsAuthenticated]
+
+class ParkingSlotRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = ParkingSlot.objects.all()
+    serializer_class = ParkingSlotSerializer
+    permission_classes = [IsAuthenticated]
+
+
+# -------------------
+# Visitor Views
+# -------------------
 class VisitorListCreateAPIView(generics.ListCreateAPIView):
     queryset = Visitor.objects.all()
     serializer_class = VisitorSerializer
-    permission_classes = [IsAuthenticated]  # Commented out for public access
+    permission_classes = [IsAuthenticated]
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         with transaction.atomic():
-            visitor = Visitor.objects.create(
-                name=serializer.validated_data['name'],
-                drivers_license=serializer.validated_data['drivers_license'],
-                plate_number=serializer.validated_data.get('plate_number', ''),
-                purpose=serializer.validated_data['purpose'],
-            )
+            visitor = serializer.save()
 
             access_log = AccessLog.objects.create(
                 type='VISITOR',
                 action='ENTRY',
                 visitor_log=visitor,
+                parking=visitor.parking_slot
             )
 
             return Response({
@@ -66,141 +82,89 @@ class VisitorListCreateAPIView(generics.ListCreateAPIView):
                 'access_log': AccessLogSerializer(access_log).data
             }, status=status.HTTP_201_CREATED)
 
+
 class VisitorRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Visitor.objects.all()
     serializer_class = VisitorSerializer
     permission_classes = [IsAuthenticated]
-    authentication_classes = [TokenAuthentication, CsrfExemptSessionAuthentication]
 
-# Parking Slot Views
-class ParkingSlotListCreateAPIView(generics.ListCreateAPIView):
-    queryset = ParkingSlot.objects.all()
-    serializer_class = ParkingSlotSerializer
-    permission_classes = [IsAuthenticated]
-    authentication_classes = [TokenAuthentication, CsrfExemptSessionAuthentication]
 
-class ParkingSlotRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = ParkingSlot.objects.all()
-    serializer_class = ParkingSlotSerializer
-    permission_classes = [IsAuthenticated]
-    authentication_classes = [TokenAuthentication, CsrfExemptSessionAuthentication]
-
-# Access Log Views (ReadOnly)
+# -------------------
+# AccessLog Views
+# -------------------
 class AccessLogListAPIView(generics.ListAPIView):
     queryset = AccessLog.objects.all()
     serializer_class = AccessLogSerializer
     permission_classes = [IsAuthenticated]
-    authentication_classes = [TokenAuthentication, CsrfExemptSessionAuthentication]
 
 class AccessLogRetrieveAPIView(generics.RetrieveAPIView):
     queryset = AccessLog.objects.all()
     serializer_class = AccessLogSerializer
     permission_classes = [IsAuthenticated]
-    authentication_classes = [TokenAuthentication, CsrfExemptSessionAuthentication]
 
-# RFID Validation View - WITH PROPER CSRF EXEMPTION
+
+# -------------------
+# Validate RFID
+# -------------------
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def validate_rfid(request):
-    """
-    Accepts JSON: {'rfid_uid': 'ABC123', 'action': 'ENTRY' or 'EXIT'}
-    Uses permanent parking assignments
-    """
+    rfid_uid = request.data.get('rfid_uid')
+    action = request.data.get('action')
+
+    if not rfid_uid or not action or action not in ['ENTRY', 'EXIT']:
+        return Response({'status': 'error', 'message': 'Invalid request'}, status=400)
+
     try:
-        # Get data from JSON request
-        rfid_uid = request.data.get('rfid_uid')
-        action = request.data.get('action')
+        rfid = RFID.objects.get(uid=rfid_uid)
+    except RFID.DoesNotExist:
+        return Response({'status': 'error', 'message': 'RFID not registered'}, status=404)
 
-        # Validate required fields
-        if not rfid_uid:
-            return Response({
-                'status': 'error',
-                'message': 'rfid_uid is required'
-            }, status=status.HTTP_400_BAD_REQUEST)
+    # Determine owner
+    if rfid.issued_to:
+        user_type = 'RESIDENT'
+        user = rfid.issued_to
+        parking = user.parking_slot
+    elif rfid.temporary_owner:
+        user_type = 'VISITOR'
+        user = rfid.temporary_owner
+        parking = user.parking_slot
+    else:
+        return Response({'status': 'error', 'message': 'RFID not assigned'})
 
-        if not action:
-            return Response({
-                'status': 'error', 
-                'message': 'action is required'
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-        if action not in ['ENTRY', 'EXIT']:
-            return Response({
-                'status': 'error',
-                'message': 'action must be ENTRY or EXIT'
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-        # Validate RFID by checking if resident exists
-        try:
-            resident = Resident.objects.get(rfid_uid=rfid_uid.upper().strip())
-        except Resident.DoesNotExist:
-            return Response({
-                'status': 'error',
-                'message': 'RFID not registered'
-            }, status=status.HTTP_404_NOT_FOUND)
-
-        # Handle parking based on action - PERMANENT ASSIGNMENT LOGIC
-        parking = None
-        parking_message = ""
-        
+    # Handle parking
+    parking_message = ''
+    if parking:
         if action == 'ENTRY':
-            # Check if resident has an assigned parking slot
-            parking = ParkingSlot.objects.filter(owner=resident).first()
-            
-            if parking:
-                if parking.status == 'AVAILABLE':
-                    parking.status = 'OCCUPIED'
-                    parking.save()
-                    parking_message = f"Occupied assigned parking slot {parking.slot_number}"
-                else:
-                    parking_message = f"Assigned parking slot {parking.slot_number} is already occupied"
+            if parking.status == 'AVAILABLE':
+                parking.status = 'OCCUPIED'
+                parking.save()
+                parking_message = f"Parking {parking.slot_number} occupied"
             else:
-                parking_message = "No assigned parking slot for this resident"
-                
-        elif action == 'EXIT':
-            # Check if resident has an assigned parking slot to release
-            parking = ParkingSlot.objects.filter(owner=resident, status='OCCUPIED').first()
-            
-            if parking:
+                parking_message = f"Parking {parking.slot_number} already occupied"
+        else:
+            if parking.status == 'OCCUPIED':
                 parking.status = 'AVAILABLE'
                 parking.save()
-                parking_message = f"Freed assigned parking slot {parking.slot_number}"
-            else:
-                # Check if they have a parking slot that's already available
-                assigned_parking = ParkingSlot.objects.filter(owner=resident).first()
-                if assigned_parking:
-                    if assigned_parking.status == 'AVAILABLE':
-                        parking_message = f"Assigned parking slot {assigned_parking.slot_number} was already available"
-                    else:
-                        parking_message = f"No occupied parking slot found for resident"
-                else:
-                    parking_message = "No assigned parking slot for this resident"
+                parking_message = f"Parking {parking.slot_number} freed"
 
-        # Create access log1
-        access_log = AccessLog.objects.create(
-            type='RESIDENT',
-            action=action,
-            resident=resident,
-            parking=parking,
-        )
+    # Create access log
+    access_log = AccessLog.objects.create(
+        type=user_type,
+        action=action,
+        resident=user if user_type=='RESIDENT' else None,
+        visitor_log=user if user_type=='VISITOR' else None,
+        parking=parking
+    )
 
-        # Return success response
-        return Response({
-            'status': 'success',
-            'message': f'Access {action} recorded successfully',
-            'data': {
-                'resident': ResidentSerializer(resident).data,
-                'action': action,
-                'parking_slot': parking.slot_number if parking else None,
-                'parking_status': parking.status if parking else 'NO_SLOT',
-                'parking_message': parking_message,
-                'access_log_id': access_log.id,
-                'timestamp': access_log.timestamp
-            }
-        })
-
-    except Exception as e:
-        return Response({
-            'status': 'error',
-            'message': f'Server error: {str(e)}'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    return Response({
+        'status': 'success',
+        'user_type': user_type,
+        'name': user.name,
+        'plate_number': user.plate_number,
+        'parking_slot': parking.slot_number if parking else None,
+        'parking_status': parking.status if parking else 'NO_SLOT',
+        'parking_message': parking_message,
+        'access_log_id': access_log.id,
+        'timestamp': access_log.timestamp
+    })

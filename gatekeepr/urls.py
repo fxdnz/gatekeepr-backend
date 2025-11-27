@@ -1,4 +1,3 @@
-
 from django.contrib import admin
 from django.urls import path, include, re_path
 from django.views.generic import TemplateView
@@ -8,9 +7,15 @@ from django.conf.urls.static import static
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/v1/', include('access_control.urls')),
+    path('api/access-control/', include('access_control.urls')),
+    
+    # Djoser URLs for authentication
     path('auth/', include('djoser.urls')),
     path('auth/', include('djoser.urls.jwt')),
+    
+    # Accounts app URLs
+    path('api/accounts/', include('accounts.urls')),
+    
     path('api-token-auth/', obtain_auth_token),
 ] 
 

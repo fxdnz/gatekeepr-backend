@@ -1,28 +1,23 @@
-
 from pathlib import Path
 from datetime import timedelta
-import dj_database_url
-
 import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+SECRET_KEY = '4d851d0b029af74b808a170f6ed2189d'
+DEBUG = True
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = '4d851d0b029af74b808a170f6ed2189d' #Change lang sa SECRET_KEY paghuman
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'False') == 'True'
-
-ALLOWED_HOSTS = ['*']
-
+# ALLOWED_HOSTS - REQUIRED for your custom domain
+ALLOWED_HOSTS = [
+    'gatekeepr.local', 
+    'localhost', 
+    '127.0.0.1',
+    '.localhost'
+    '192.168.56.1',  # Allows any subdomain of localhost
+]
 
 # Application definition
-
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -32,38 +27,61 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'accounts.apps.AccountsConfig',
     'access_control', 
-    'rest_framework',  # Django REST framework
+    'rest_framework',
     'djoser',
-    "corsheaders",
+    "corsheaders",  # CORS app
     'rest_framework.authtoken',
-
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
-    "corsheaders.middleware.CorsMiddleware",
+    'corsheaders.middleware.CorsMiddleware',  # CORS middleware - should be as high as possible
     'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-# Add this to your existing settings.py
-CSRF_TRUSTED_ORIGINS = [
-    'https://gatekeepr-backend.onrender.com',
-    'http://localhost:8000',
-    'http://localhost:5173',
-    'https://gatekeepr1.netlify.app',
+# CORS Configuration
+CORS_ALLOW_ALL_ORIGINS = True  # Allow all origins during development
+CORS_ALLOW_CREDENTIALS = True  # Allow cookies and authentication headers
+
+# Optional: Specific allowed origins (more secure)
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://192.168.56.1:5173", 
+    "http://gatekeepr.local:5173",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+    "http://gatekeepr.local:8000",
+    "http://192.168.56.1:8000", 
+   
 ]
 
-# Optional: These settings help with API security
-CSRF_COOKIE_HTTPONLY = False
-CSRF_USE_SESSIONS = False
+# Allow all headers needed for your API
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-requested-with',
+    'x-csrftoken',  # If you ever add CSRF back
+]
 
-CORS_ALLOW_ALL_ORIGINS = True
+# Allow the HTTP methods you need
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
 
 ROOT_URLCONF = 'gatekeepr.urls'
 
@@ -84,29 +102,23 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'gatekeepr.wsgi.application'
 
-
 # Database
-# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'NAME': BASE_DIR / 'gatekeepr.sqlite3',
     }
 }
 
-DATABASES ['default'] = dj_database_url.parse("postgresql://gatekeepr_admin:Q8YWyMfjBcIIdKrjmQBHwvEzUFH1j0UG@dpg-d3t423ripnbc738e2qjg-a.singapore-postgres.render.com/db_gatekeepr_zcf0")
-
+# Email configuration
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_HOST_USER = 'gatekeepr.noreply@gmail.com'
-EMAIL_HOST_PASSWORD = 'tfludrkzwgmucaqe'
+EMAIL_HOST_PASSWORD = 'axrn yzxy nrjh ybis'
 EMAIL_USE_TLS = True
 
 # Password validation
-# https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
-
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
@@ -122,68 +134,56 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Internationalization
-# https://docs.djangoproject.com/en/5.2/topics/i18n/
-
 LANGUAGE_CODE = 'en-us'
-
 TIME_ZONE = 'UTC'
-
 USE_I18N = True
-
 USE_TZ = True
 
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.2/howto/static-files/
-
-# Static files (CSS, JavaScript, Images)
-# For development, Django should look in 'static' and Vite's build output 'dist'
+# Static files
 STATIC_URL = '/static/'
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-# Directories for static files
-STATICFILES_DIRS = [
-    # os.path.join(BASE_DIR, 'static'),  # Additional static folder for any non-Vite static files
-    os.path.join(BASE_DIR, 'dist'),  # Path to Vite build output
-]
+FRONTEND_URL = 'http://gatekeepr.local:5173'
 
-# This is where collectstatic will gather static files for production
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # Different folder for production static files
-
-FRONTEND_URL = 'https://gatekeepr1.netlify.app'
-
+# Djoser configuration
 DJOSER = {
     'LOGIN_FIELD': 'email',
-    'USER_CREATE_PASSWORD_RETYPE': True,
-    'USERNAME_CHANGED_EMAIL_CONFIRMATION': True,
-    'PASSWORD_CHANGED_EMAIL_CONFIRMATION': True,
-    'SEND_CONFIRMATION_EMAIL': True,
+    'USER_CREATE_PASSWORD_RETYPE': False,
+    'USERNAME_CHANGED_EMAIL_CONFIRMATION': False,
+    'PASSWORD_CHANGED_EMAIL_CONFIRMATION': True,  # Enable password change confirmation
+    'SEND_CONFIRMATION_EMAIL': False,
     'SET_PASSWORD_RETYPE': True,
     'PASSWORD_RESET_CONFIRM_RETYPE': True,
-    'ACTIVATION_URL': 'activate/{uid}/{token}',  # Used in activation email
-    'PASSWORD_RESET_CONFIRM_URL': 'password/reset/confirm/{uid}/{token}',  # Used in reset email
-    'SEND_ACTIVATION_EMAIL': True,
+    'SEND_ACTIVATION_EMAIL': False,
     'SERIALIZERS': {
         'user_create': 'accounts.serializers.UserCreateSerializer',
+        'user': 'accounts.serializers.UserProfileSerializer',
+        'current_user': 'accounts.serializers.UserProfileSerializer',
+    },
+    'PERMISSIONS': {
+        'user': ['rest_framework.permissions.IsAuthenticated'],
+        'user_list': ['rest_framework.permissions.IsAdminUser'],
     },
     'EMAIL': {
-        'activation' : 'accounts.email.CustomActivationEmail',
         'password_reset': 'accounts.email.CustomPasswordResetEmail',
-        'confirmation': 'accounts.email.CustomConfirmationEmail',
         'password_changed_confirmation': 'accounts.email.CustomPasswordChangedConfirmationEmail',
-    }
+    },
+    'PASSWORD_RESET_CONFIRM_URL': 'password-reset/confirm/{uid}/{token}',
+    'ACTIVATION_URL': 'activate/{uid}/{token}',
 }
 
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
+# REST Framework configuration
 REST_FRAMEWORK = {
-    'DEFAULT_PERMISSION_CLASSES':(
-        'rest_framework.permissions.IsAuthenticated',
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.AllowAny',
     ),
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework.authentication.TokenAuthentication',
         'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.TokenAuthentication',
     ),
 }
 
@@ -193,12 +193,6 @@ SIMPLE_JWT = {
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
 }
 
-
-# Default primary key field type
-# https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
-
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-AUTH_USER_MODEL = 'accounts.UserAccount'  # Custom user model
-
+AUTH_USER_MODEL = 'accounts.UserAccount'
 LOGIN_REDIRECT_URL = '/admin/'
