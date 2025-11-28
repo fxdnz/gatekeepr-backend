@@ -31,7 +31,7 @@ class ResidentSerializer(serializers.ModelSerializer):
     def get_parking_slot_type(self, obj):
         return obj.parking_slot.type if obj.parking_slot else "N/A"
 
-    # REMOVE or FIX the update method - it's causing the error
+    # REMOVE the update method entirely - let ModelSerializer handle it
 
 # -------------------
 # RFID Serializer
@@ -80,26 +80,59 @@ class RFIDSerializer(serializers.ModelSerializer):
 # -------------------
 # Parking Slot Serializer
 # -------------------
+# -------------------
+# Parking Slot Serializer
+# -------------------
 class ParkingSlotSerializer(serializers.ModelSerializer):
+    # Nested serializers for issued_to and temporary_owner to return full details
+    issued_to_details = ResidentSerializer(read_only=True, source='issued_to')
+    temporary_owner_details = serializers.SerializerMethodField()
+    location_display = serializers.SerializerMethodField()
+
     class Meta:
         model = ParkingSlot
-        fields = '__all__'
+        fields = ['id', 'slot_number', 'status', 'type', 'issued_to', 'issued_to_details', 
+                 'temporary_owner', 'temporary_owner_details', 'location', 'location_display']
 
-    def update(self, instance, validated_data):
-        owner = validated_data.get('owner')
-        if owner:
-            owner.parking_slot = instance
-            owner.save()
-        elif instance.owner:
-            instance.owner.parking_slot = None
-            instance.owner.save()
-        return super().update(instance, validated_data)
+    def get_temporary_owner_details(self, obj):
+        if obj.temporary_owner:
+            return {
+                'id': obj.temporary_owner.id,
+                'name': obj.temporary_owner.name,
+                'first_name': obj.temporary_owner.first_name,
+                'last_name': obj.temporary_owner.last_name,
+                'purpose': obj.temporary_owner.purpose,
+                'plate_number': obj.temporary_owner.plate_number
+            }
+        return None
 
+    def get_location_display(self, obj):
+        """Format location for better display"""
+        if not obj.location:
+            return "N/A"
+        
+        # Convert BUILDING_A -> Building A, etc.
+        location_map = {
+            'BUILDING_A': 'Building A',
+            'BUILDING_B': 'Building B', 
+            'BUILDING_C': 'Building C',
+            'BUILDING_D': 'Building D',
+            'BUILDING_E': 'Building E',
+            'BUILDING_F': 'Building F',
+            'BUILDING_G': 'Building G',
+            'ADMIN': 'Admin Building'
+        }
+        
+        return location_map.get(obj.location, obj.location.replace('_', ' ').title())
 
 # -------------------
 # Visitor Serializer
 # -------------------
 class VisitorSerializer(serializers.ModelSerializer):
+    # Use the nested RFIDSerializer to return detailed RFID info
+    rfid = RFIDSerializer(read_only=True)  # Nested RFIDSerializer
+    parking_slot = ParkingSlotSerializer(read_only=True)  # Nested ParkingSlotSerializer
+
     class Meta:
         model = Visitor
         fields = '__all__'
@@ -136,6 +169,7 @@ class VisitorSerializer(serializers.ModelSerializer):
             parking.status = 'OCCUPIED'
             parking.save()
         return visitor
+
 
 # -------------------
 # AccessLog Serializer
