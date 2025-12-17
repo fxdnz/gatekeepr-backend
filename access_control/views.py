@@ -3,6 +3,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from django.db import transaction
+from django.utils import timezone
 from .models import Resident, Visitor, RFID, ParkingSlot, AccessLog
 from .serializers import (
     ResidentSerializer,
@@ -69,11 +70,12 @@ class VisitorListCreateAPIView(generics.ListCreateAPIView):
         with transaction.atomic():
             visitor = serializer.save()
 
+            # Create access log for visitor entry
             access_log = AccessLog.objects.create(
                 type='VISITOR',
                 action='ENTRY',
                 visitor_log=visitor,
-                parking=visitor.parking_slot
+                parking=ParkingSlot.objects.filter(temporary_owner=visitor).first()
             )
 
             return Response({
@@ -88,14 +90,40 @@ class VisitorRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView)
     serializer_class = VisitorSerializer
     permission_classes = [IsAuthenticated]
 
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        
+        with transaction.atomic():
+            self.perform_update(serializer)
+            
+            return Response({
+                'status': 'success',
+                'visitor': serializer.data,
+                'message': 'Visitor updated successfully'
+            })
+
 
 # -------------------
 # AccessLog Views
 # -------------------
-class AccessLogListAPIView(generics.ListAPIView):
+class AccessLogListCreateAPIView(generics.ListCreateAPIView):
     queryset = AccessLog.objects.all()
     serializer_class = AccessLogSerializer
     permission_classes = [IsAuthenticated]
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        access_log = serializer.save()
+        
+        return Response({
+            'status': 'success',
+            'message': 'Access log created successfully',
+            'access_log': AccessLogSerializer(access_log).data
+        }, status=status.HTTP_201_CREATED)
 
 class AccessLogRetrieveAPIView(generics.RetrieveAPIView):
     queryset = AccessLog.objects.all()
@@ -124,11 +152,19 @@ def validate_rfid(request):
     if rfid.issued_to:
         user_type = 'RESIDENT'
         user = rfid.issued_to
-        parking = user.parking_slot
+        # Get resident's parking slot
+        parking = ParkingSlot.objects.filter(issued_to=user).first()
     elif rfid.temporary_owner:
         user_type = 'VISITOR'
         user = rfid.temporary_owner
-        parking = user.parking_slot
+        # Get visitor's parking slot
+        parking = ParkingSlot.objects.filter(temporary_owner=user).first()
+        
+        # Mark visitor as signed out on EXIT
+        if action == 'EXIT':
+            user.signed_out = True
+            user.signed_out_at = timezone.now()
+            user.save()
     else:
         return Response({'status': 'error', 'message': 'RFID not assigned'})
 
@@ -166,5 +202,61 @@ def validate_rfid(request):
         'parking_status': parking.status if parking else 'NO_SLOT',
         'parking_message': parking_message,
         'access_log_id': access_log.id,
-        'timestamp': access_log.timestamp
+        'timestamp': access_log.timestamp,
+        'signed_out': user.signed_out if user_type == 'VISITOR' else False
+    })
+
+
+# -------------------
+# Sign Out Visitor
+# -------------------
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def sign_out_visitor(request):
+    visitor_id = request.data.get('visitor_id')
+    
+    if not visitor_id:
+        return Response({'status': 'error', 'message': 'Visitor ID is required'}, status=400)
+    
+    try:
+        visitor = Visitor.objects.get(id=visitor_id)
+    except Visitor.DoesNotExist:
+        return Response({'status': 'error', 'message': 'Visitor not found'}, status=404)
+    
+    # Check if visitor is already signed out
+    if visitor.signed_out:
+        return Response({
+            'status': 'error', 
+            'message': 'Visitor is already signed out'
+        }, status=400)
+    
+    # Check if visitor has assigned resources
+    has_rfid = RFID.objects.filter(temporary_owner=visitor).exists()
+    has_parking = ParkingSlot.objects.filter(temporary_owner=visitor).exists()
+    
+    if has_rfid or has_parking:
+        return Response({
+            'status': 'error', 
+            'message': 'Visitor has assigned RFID or parking slot. Please unassign first.'
+        }, status=400)
+    
+    with transaction.atomic():
+        # Mark visitor as signed out
+        visitor.signed_out = True
+        visitor.signed_out_at = timezone.now()
+        visitor.save()
+        
+        # Create exit access log
+        access_log = AccessLog.objects.create(
+            type='VISITOR',
+            action='EXIT',
+            visitor_log=visitor,
+            parking=None
+        )
+    
+    return Response({
+        'status': 'success',
+        'message': f'Visitor {visitor.name} signed out successfully',
+        'visitor': VisitorSerializer(visitor).data,
+        'access_log': AccessLogSerializer(access_log).data
     })
