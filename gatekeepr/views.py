@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Configuration
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_API_KEY = "AIzaSyCeO3qEJ8wjeMvOwJZ2lfC6oaLV1Ovpoxw"
 # Using 2.0 Flash as requested
 GEMINI_MODEL = "gemini-2.5-flash-lite" 
 GEMINI_ENDPOINT = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
